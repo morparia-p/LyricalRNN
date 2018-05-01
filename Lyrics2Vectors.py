@@ -4,6 +4,7 @@ from collections import Counter
 import nltk
 import csv
 import pickle
+from math import log10
 
 def gatherTitlesLyrics(a,b):
   art,title,url,lyr = b
@@ -15,21 +16,20 @@ def loadTitlesLyrics():
   with open("./data/songdata.csv") as lyrics:
     return reduce(gatherTitlesLyrics,csv.reader(lyrics),{"Titles":[],"Lyrics":[]})
 
-def countTokenized(documents):
- return reduce(lambda a,b:a+Counter(b), documents, Counter())
+def updateCounts(a,b):
+  for u in set(b):
+    a[u] = a.get(u,0) + 1
+  return a
 
-class tokenCounter:
-  def __init__(self,tokenizer):
-    self.tknzr = tokenizer
-  def addCounters(self,a,b):
-    return a+Counter(self.tknzr(b))
-  def countTokens(self,documents):
-    reduce(self.addCounters,documents,Counter())
-
+def IdfTokenized(documents):
+  doc_freqs = reduce(updateCounts,documents,{})
+  idfs = {k:log10(1 + len(documents)/v) for k,v in doc_freqs.items()}
+  return idfs
+    
 if __name__ == "__main__":
   d = loadTitlesLyrics()
   d["Lyrics"] = [nltk.tokenize.word_tokenize(l) for l in d["Lyrics"]]
   lyricVectors = FastText(d['Lyrics'],min_count=2,workers=2,size=100)
   lyricVectors.save("LyricVectors.pkl")
-  counts = countTokenized(titlesAndLyrics["Lyrics"])
-  pickle.dump(counts,"LyricTokenCounts.pkl")
+  idfs = IdfTokenized(d["Lyrics"])
+  pickle.dump(idfs,open("LyricTokenIDFs.pkl","wb"))
